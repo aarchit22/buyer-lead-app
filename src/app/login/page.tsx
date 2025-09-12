@@ -1,5 +1,5 @@
 // app/login/page.tsx
-import { login } from '../actions';
+import { login } from '../../lib/actions';
 
 export default function LoginPage() {
   return (
