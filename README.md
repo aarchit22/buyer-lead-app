@@ -1,6 +1,6 @@
 # Buyer Lead Intake App
 
-A Next.js application for managing buyer leads, built to fulfil## Authentication & Ownership
+A Next.js application for managing buyer leads, built to fulfil Authentication & Ownership
 
 **Multi-User Demo System:**
 - Demo users: `sales1/sales123`, `sales2/sales456`, `manager/manager123`
