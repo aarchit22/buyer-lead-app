@@ -68,8 +68,8 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
                     </tr>
                   </thead>
                   <tbody>
-                    {data.history.flatMap((h: any) => {
-                      const changes = h.diff;
+                    {data.history.flatMap((h: { id: string; diff: unknown; changedAt: Date }) => {
+                      const changes = h.diff as Record<string, unknown>;
                       if (changes.initial_creation) {
                         return [
                           <tr key={`${h.id}-creation`} className="border-b">
@@ -80,19 +80,22 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
                           </tr>
                         ];
                       }
-                      
-                      return Object.entries(changes).map(([field, change]: [string, any]) => (
+
+                      return Object.entries(changes).map(([field, change]: [string, unknown]) => {
+                        const changeObj = change as { from: unknown; to: unknown };
+                        return (
                         <tr key={`${h.id}-${field}`} className="border-b">
                           <td className="py-2 font-medium capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}</td>
-                          <td className="py-2 text-muted max-w-32 truncate" title={JSON.stringify(change.from)}>
-                            {Array.isArray(change.from) ? `[${change.from.join(', ')}]` : String(change.from || '-')}
+                          <td className="py-2 text-muted max-w-32 truncate" title={JSON.stringify(changeObj.from)}>
+                            {Array.isArray(changeObj.from) ? `[${changeObj.from.join(', ')}]` : String(changeObj.from || '-')}
                           </td>
-                          <td className="py-2 max-w-32 truncate" title={JSON.stringify(change.to)}>
-                            {Array.isArray(change.to) ? `[${change.to.join(', ')}]` : String(change.to || '-')}
+                          <td className="py-2 max-w-32 truncate" title={JSON.stringify(changeObj.to)}>
+                            {Array.isArray(changeObj.to) ? `[${changeObj.to.join(', ')}]` : String(changeObj.to || '-')}
                           </td>
                           <td className="py-2">{new Date(h.changedAt).toLocaleString()}</td>
                         </tr>
-                      ));
+                        );
+                      });
                     })}
                   </tbody>
                 </table>

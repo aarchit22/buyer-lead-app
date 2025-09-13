@@ -7,7 +7,27 @@ import Link from 'next/link';
 import { cities, propertyTypes, bhkOptions, purposes, timelines, sources, statuses } from '@/lib/constants';
 
 interface BuyerEditFormProps {
-  initial: any; // could refine typing later
+  initial: {
+    buyer: {
+      id: string;
+      fullName: string;
+      email?: string | null;
+      phone: string;
+      city: string;
+      propertyType: string;
+      bhk?: string | null;
+      purpose: string;
+      budgetMin?: number | null;
+      budgetMax?: number | null;
+      timeline: string;
+      source: string;
+      status: string;
+      notes?: string | null;
+      tags: string[];
+      updatedAt: Date;
+    };
+    history: unknown[];
+  };
 }
 
 export default function BuyerEditForm({ initial }: BuyerEditFormProps) {

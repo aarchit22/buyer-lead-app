@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const timeline = searchParams.get('timeline') || undefined;
 
     // Build where clause (similar to buildWhere function in buyers page)
-    const where: any = {};
+    const where: Record<string, unknown> = {};
     if (city) where.city = city;
     if (propertyType) where.propertyType = propertyType;
     if (status) where.status = status;

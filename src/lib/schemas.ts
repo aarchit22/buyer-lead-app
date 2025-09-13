@@ -29,9 +29,10 @@ export const buyerSchema = z.object({
   
   notes: z.string().max(1000, "Notes cannot exceed 1000 characters").optional(),
   tags: z
-    .string()
-    .trim()
-    .transform(val => val.length === 0 ? [] : val.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0))
+    .union([
+      z.string().transform(val => val.length === 0 ? [] : val.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)),
+      z.array(z.string())
+    ])
     .optional(),
 
 }).refine(data => {

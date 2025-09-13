@@ -8,16 +8,16 @@ import { createBuyer, CreateBuyerFormState } from '@/lib/actions';
 import { useActionState, useEffect } from 'react';
 import { cities, propertyTypes, bhkOptions, purposes, timelines, sources } from '@/lib/constants';
 
-// Type from Zod
-type BuyerFormData = z.infer<typeof buyerSchema>;
+// Type for form input
+type BuyerFormInput = z.infer<typeof buyerSchema>;
 
 export function BuyerCreateForm() {
   const initialState: CreateBuyerFormState = { success: false, message: '' };
   const [state, formAction] = useActionState(createBuyer, initialState);
 
-  const { register, formState: { errors, isSubmitting }, watch, reset, setValue } = useForm<BuyerFormData>({
-    resolver: zodResolver(buyerSchema),
-    defaultValues: { tags: [], propertyType: undefined as any },
+  const { register, formState: { errors, isSubmitting }, watch, reset, setValue } = useForm<BuyerFormInput>({
+    resolver: zodResolver(buyerSchema) as never,
+    defaultValues: { tags: '' as never, propertyType: undefined as never },
   });
 
   const propertyType = watch('propertyType');
@@ -25,7 +25,7 @@ export function BuyerCreateForm() {
   // If property type changes to something that doesn't require BHK, clear it to avoid stale validation
   useEffect(() => {
     if (!(propertyType === 'Apartment' || propertyType === 'Villa')) {
-      setValue('bhk', undefined as any, { shouldValidate: true, shouldDirty: true });
+      setValue('bhk', undefined as never, { shouldValidate: true, shouldDirty: true });
     }
   }, [propertyType, setValue]);
 

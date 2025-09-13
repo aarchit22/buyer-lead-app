@@ -1,12 +1,10 @@
 'use server';
 
-import { z } from 'zod';
 import { buyerSchema } from './schemas';
 import { csvImportSchema } from './csv-schema';
 import { PrismaClient } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { cookies, headers } from 'next/headers';
-import { sign } from 'jsonwebtoken';
 import { redirect } from 'next/navigation';
 import { getSessionUser, createSession } from './auth';
 import { rateLimit, getRateLimitKey } from './rate-limit';
@@ -114,28 +112,40 @@ export async function createBuyer(
   }
 
   try {
-  const { tags, ...data } = validatedFields.data as any;
+    const validatedData = validatedFields.data;
+    const tagsValue = validatedData.tags;
 
-    const budgetMin = data.budgetMin ? Number(data.budgetMin) : null;
-    const budgetMax = data.budgetMax ? Number(data.budgetMax) : null;
+    const budgetMin = validatedData.budgetMin ? Number(validatedData.budgetMin) : null;
+    const budgetMax = validatedData.budgetMax ? Number(validatedData.budgetMax) : null;
 
-    console.log('createBuyer: attempt', { ownerId, email: data.email, phone: data.phone });
+    console.log('createBuyer: attempt', { ownerId, email: validatedData.email, phone: validatedData.phone });
+
+    // Process tags
+    let processedTags: string[] = [];
+    const tagsAsUnknown = tagsValue as unknown;
+    if (typeof tagsAsUnknown === 'string' && tagsAsUnknown.length > 0) {
+      processedTags = tagsAsUnknown.split(',').map((t: string) => t.trim()).filter(Boolean);
+    } else if (Array.isArray(tagsAsUnknown)) {
+      processedTags = tagsAsUnknown;
+    }
 
     // Simpler sequential writes to avoid transaction timeout (P2028)
     const newBuyer = await prisma.buyer.create({
       data: {
-        ...data,
+        fullName: validatedData.fullName,
+        email: validatedData.email,
+        phone: validatedData.phone,
+        city: validatedData.city,
+        propertyType: validatedData.propertyType,
+        bhk: validatedData.bhk,
+        purpose: validatedData.purpose,
+        timeline: validatedData.timeline,
+        source: validatedData.source,
+        status: validatedData.status || 'New',
+        notes: validatedData.notes,
         budgetMin,
         budgetMax,
-        tags: (() => {
-          if (typeof tags === 'string') {
-            return tags.length > 0 ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-          }
-          if (Array.isArray(tags)) {
-            return tags;
-          }
-          return [];
-        })(),
+        tags: processedTags,
         ownerId,
       },
     });
@@ -148,16 +158,17 @@ export async function createBuyer(
     });
 
     revalidatePath('/buyers');
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create buyer failed:', error);
-    if (error.code === 'P2002') {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2002') {
       return {
         success: false,
         message: 'A record with this unique field already exists (likely email).',
         errors: { email: ['Email already in use'] },
       };
     }
-    if (error.code === 'P2028') {
+    if (prismaError.code === 'P2028') {
       return {
         success: false,
         message: 'Database was busy. Please retry in a moment (timeout).',
@@ -220,9 +231,19 @@ export async function updateBuyer(
     };
   }
 
-  const { tags, ...data } = validated.data as any;
-  const budgetMin = data.budgetMin ? Number(data.budgetMin) : null;
-  const budgetMax = data.budgetMax ? Number(data.budgetMax) : null;
+  const validatedUpdateData = validated.data;
+  const tagsUpdateValue = validatedUpdateData.tags;
+  const budgetMin = validatedUpdateData.budgetMin ? Number(validatedUpdateData.budgetMin) : null;
+  const budgetMax = validatedUpdateData.budgetMax ? Number(validatedUpdateData.budgetMax) : null;
+
+  // Process tags for update
+  let newTags: string[] = [];
+  const tagsAsUnknown = tagsUpdateValue as unknown;
+  if (typeof tagsAsUnknown === 'string' && tagsAsUnknown.length > 0) {
+    newTags = tagsAsUnknown.split(',').map((t: string) => t.trim()).filter(Boolean);
+  } else if (Array.isArray(tagsAsUnknown)) {
+    newTags = tagsAsUnknown;
+  }
 
   try {
     const existing = await prisma.buyer.findUnique({ where: { id } });
@@ -259,31 +280,36 @@ export async function updateBuyer(
       return { success: false, message: 'Record was modified by someone else. Reload and re-apply changes.', concurrencyError: true };
     }
 
-    const newTags = (() => {
-      if (typeof tags === 'string') {
-        return tags.length > 0 ? tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
-      }
-      if (Array.isArray(tags)) return tags;
-      return [];
-    })();
-
     const updated = await prisma.buyer.update({
       where: { id },
       data: {
-        ...data,
+        fullName: validatedUpdateData.fullName,
+        email: validatedUpdateData.email,
+        phone: validatedUpdateData.phone,
+        city: validatedUpdateData.city,
+        propertyType: validatedUpdateData.propertyType,
+        bhk: validatedUpdateData.bhk,
+        purpose: validatedUpdateData.purpose,
+        timeline: validatedUpdateData.timeline,
+        source: validatedUpdateData.source,
+        status: validatedUpdateData.status,
+        notes: validatedUpdateData.notes,
         budgetMin,
         budgetMax,
         tags: newTags,
       },
     });
 
-    const diff: Record<string, { from: any; to: any }> = {};
+    // Create diff object for history tracking
+    const diff: Record<string, unknown> = {};
     const fieldsToCompare = [
       'fullName','email','phone','city','propertyType','bhk','purpose','budgetMin','budgetMax','timeline','source','status','notes'
     ];
     for (const f of fieldsToCompare) {
-      if ((existing as any)[f] !== (updated as any)[f]) {
-        diff[f] = { from: (existing as any)[f], to: (updated as any)[f] };
+      const oldValue = (existing as Record<string, unknown>)[f];
+      const newValue = (updated as Record<string, unknown>)[f];
+      if (oldValue !== newValue) {
+        diff[f] = { from: oldValue, to: newValue };
       }
     }
     if (JSON.stringify(existing.tags) !== JSON.stringify(updated.tags)) {
@@ -295,7 +321,7 @@ export async function updateBuyer(
         data: {
           buyerId: id,
           changedBy: ownerId,
-          diff,
+          diff: diff as object,
         },
       });
     }
@@ -303,12 +329,13 @@ export async function updateBuyer(
     revalidatePath('/buyers');
     revalidatePath(`/buyers/${id}`);
     return { success: true, message: 'Buyer updated successfully.' };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update buyer failed:', error);
-    if (error.code === 'P2002') {
+    const prismaError = error as { code?: string };
+    if (prismaError.code === 'P2002') {
       return { success: false, message: 'Unique field conflict (email).', errors: { email: ['Email already in use'] } };
     }
-    if (error.code === 'P2028') {
+    if (prismaError.code === 'P2028') {
       return { success: false, message: 'Database busy, please retry shortly.' };
     }
   return { success: false, message: 'Unexpected error updating buyer.' };
@@ -321,7 +348,7 @@ export type CSVImportResult = {
   message: string;
   totalRows: number;
   validRows: number;
-  errors: Array<{ row: number; message: string; data?: any }>;
+  errors: Array<{ row: number; message: string; data?: string | Record<string, unknown> }>;
 };
 
 export async function importBuyersCSV(formData: FormData): Promise<CSVImportResult> {
@@ -349,7 +376,6 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
 
     // Parse header
     const headerLine = lines[0];
-    const expectedHeaders = ['fullName', 'email', 'phone', 'city', 'propertyType', 'bhk', 'purpose', 'budgetMin', 'budgetMax', 'timeline', 'source', 'notes', 'tags', 'status'];
     const requiredHeaders = ['fullName', 'phone', 'city', 'propertyType', 'purpose', 'budgetMin', 'budgetMax', 'timeline', 'source', 'status'];
     const headers = headerLine.split(',').map(h => h.replace(/^"|"$/g, '').trim());
     
@@ -365,8 +391,8 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
       };
     }
 
-    const errors: Array<{ row: number; message: string; data?: any }> = [];
-    const validBuyers: any[] = [];
+    const errors: Array<{ row: number; message: string; data?: string | Record<string, unknown> }> = [];
+    const validBuyers: Record<string, unknown>[] = [];
 
     // Process data rows
     for (let i = 1; i < lines.length; i++) {
@@ -376,7 +402,7 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
       try {
         // Parse CSV row (simple implementation)
         const values = line.split(',').map(v => v.replace(/^"|"$/g, '').trim());
-        const rowData: any = {};
+        const rowData: Record<string, unknown> = {};
         
         headers.forEach((header, index) => {
           const value = values[index] || '';
@@ -402,12 +428,33 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
           continue;
         }
 
-        const { tags, ...data } = validated.data as any;
+        const validatedCsvData = validated.data;
+        const csvTags = validatedCsvData.tags;
+        
+        // Process CSV tags
+        let processedCsvTags: string[] = [];
+        const csvTagsAsUnknown = csvTags as unknown;
+        if (Array.isArray(csvTagsAsUnknown)) {
+          processedCsvTags = csvTagsAsUnknown;
+        } else if (typeof csvTagsAsUnknown === 'string' && csvTagsAsUnknown.trim()) {
+          processedCsvTags = csvTagsAsUnknown.split(',').map((t: string) => t.trim()).filter(Boolean);
+        }
+
         const validBuyer = {
-          ...data,
-          budgetMin: data.budgetMin ? Number(data.budgetMin) : null,
-          budgetMax: data.budgetMax ? Number(data.budgetMax) : null,
-          tags: Array.isArray(tags) ? tags : (typeof tags === 'string' && tags.trim() ? tags.split(',').map(t => t.trim()) : []),
+          fullName: validatedCsvData.fullName,
+          email: validatedCsvData.email,
+          phone: validatedCsvData.phone,
+          city: validatedCsvData.city,
+          propertyType: validatedCsvData.propertyType,
+          bhk: validatedCsvData.bhk,
+          purpose: validatedCsvData.purpose,
+          timeline: validatedCsvData.timeline,
+          source: validatedCsvData.source,
+          status: validatedCsvData.status || 'New',
+          notes: validatedCsvData.notes,
+          budgetMin: validatedCsvData.budgetMin ? Number(validatedCsvData.budgetMin) : null,
+          budgetMax: validatedCsvData.budgetMax ? Number(validatedCsvData.budgetMax) : null,
+          tags: processedCsvTags,
           ownerId,
         };
 
@@ -421,7 +468,9 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
     if (validBuyers.length > 0) {
       try {
         for (const buyerData of validBuyers) {
-          const buyer = await prisma.buyer.create({ data: buyerData });
+          const buyer = await prisma.buyer.create({ 
+            data: buyerData as never
+          });
           // Create history entry
           await prisma.buyerHistory.create({
             data: {
@@ -431,11 +480,12 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
             },
           });
         }
-      } catch (createError: any) {
+      } catch (createError: unknown) {
         console.error('Error creating buyers:', createError);
+        const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
         return {
           success: false,
-          message: `Failed to import buyers: ${createError.message || 'Unknown error'}`,
+          message: `Failed to import buyers: ${errorMessage}`,
           totalRows: lines.length - 1,
           validRows: 0,
           errors: []
@@ -452,11 +502,12 @@ export async function importBuyersCSV(formData: FormData): Promise<CSVImportResu
       validRows: validBuyers.length,
       errors,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('CSV import failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return { 
       success: false, 
-      message: `Import failed: ${error.message}`, 
+      message: `Import failed: ${errorMessage}`, 
       totalRows: 0, 
       validRows: 0, 
       errors: [] 

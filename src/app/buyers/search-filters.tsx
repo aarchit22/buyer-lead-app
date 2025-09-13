@@ -25,19 +25,6 @@ export default function SearchFilters({
   const [search, setSearch] = useState(initialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
 
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  // Update URL when debounced search changes
-  useEffect(() => {
-    updateURL('search', debouncedSearch);
-  }, [debouncedSearch]);
-
   const updateURL = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     
@@ -54,6 +41,19 @@ export default function SearchFilters({
     
     router.push(`/buyers?${params.toString()}`);
   }, [router, searchParams]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Update URL when debounced search changes
+  useEffect(() => {
+    updateURL('search', debouncedSearch);
+  }, [debouncedSearch, updateURL]);
 
   const clearAllFilters = () => {
     setSearch('');

@@ -24,7 +24,7 @@ type SearchParams = {
 
 function buildWhere(params: SearchParams) {
   const { search, city, propertyType, status, timeline } = params;
-  const where: any = {};
+  const where: Record<string, unknown> = {};
   if (city) where.city = city;
   if (propertyType) where.propertyType = propertyType;
   if (status) where.status = status;
