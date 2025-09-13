@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
 :root {
+  /* Base colors */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827; /* gray-900 */
+
+  /* Semantic palette (light) */
+  --color-border: #e5e7eb; /* gray-200 */
+  --color-border-strong: #d1d5db; /* gray-300 */
+  --color-muted: #6b7280; /* gray-500 */
+  --color-muted-bg: #f3f4f6; /* gray-100 */
+  --color-surface: #ffffff; /* cards */
+  --color-surface-alt: #f9fafb; /* subtle sections */
+  --color-accent: #4f46e5; /* indigo-600 */
+  --color-accent-hover: #4338ca; /* indigo-700 */
+  --color-accent-fg: #ffffff;
+  --color-danger: #dc2626; /* red-600 */
+  --color-danger-hover: #b91c1c; /* red-700 */
+  --color-focus: #2563eb; /* blue-600 */
+
+  /* Radii & spacing tokens */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --transition-fast: 120ms;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Removed custom @theme at-rule (not supported) and replaced with CSS vars only */
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a; /* slate-900 */
+    --foreground: #f1f5f9; /* slate-100 */
+    --color-border: #334155; /* slate-600 */
+    --color-border-strong: #475569; /* slate-500 */
+    --color-muted: #94a3b8; /* slate-400 */
+    --color-muted-bg: #1e293b; /* slate-800 */
+    --color-surface: #1e293b; /* panels */
+    --color-surface-alt: #162132; /* alt */
+    --color-accent: #6366f1; /* indigo-500 */
+    --color-accent-hover: #4f46e5; /* indigo-600 */
+    --color-accent-fg: #ffffff;
+    --color-danger: #f87171; /* red-400 */
+    --color-danger-hover: #ef4444; /* red-500 */
+    --color-focus: #3b82f6; /* blue-500 */
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans, Arial, Helvetica, sans-serif);
+  -webkit-font-smoothing: antialiased;
 }
+
+/* Utility classes */
+.btn { 
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0.375rem; font-weight: 500; font-size: 0.875rem; line-height: 1.25rem;
+  border-radius: var(--radius-md); padding: 0.5rem 0.9rem; border: 1px solid transparent;
+  transition: background var(--transition-fast) ease, color var(--transition-fast) ease, border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  cursor: pointer; text-decoration: none;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary { background: var(--color-accent); color: var(--color-accent-fg); }
+.btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); }
+.btn-outline { background: var(--color-surface); color: var(--color-accent); border-color: var(--color-accent); }
+.btn-outline:hover:not(:disabled) { background: var(--color-accent); color: var(--color-accent-fg); }
+.btn-ghost { background: transparent; color: var(--color-accent); }
+.btn-ghost:hover:not(:disabled) { background: var(--color-muted-bg); }
+
+/* Table styling */
+.table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.table thead th { background: var(--color-muted-bg); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+.table th, .table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--color-border); }
+.table tbody tr:hover { background: var(--color-surface-alt); }
+
+/* Form elements */
+.form-field { width: 100%; padding: 0.5rem 0.65rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: 0.875rem; }
+.form-field:focus { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.form-label { font-size: 0.75rem; font-weight: 600; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.error-text { color: var(--color-danger); font-size: 0.7rem; margin-top: 0.25rem; }
+
+/* New form layout helpers */
+.form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.form-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); }
+.field-error, .form-group .error-text { color: var(--color-danger); font-size: 0.7rem; line-height: 1.1; }
+.helper { font-size: 0.65rem; color: var(--color-muted); letter-spacing: 0.02em; }
+.alert-error { background: var(--color-danger); color: var(--color-accent-fg); padding: 0.6rem 0.75rem; border-radius: var(--radius-md); font-size: 0.75rem; }
+.section { display: flex; flex-direction: column; gap: 1rem; }
+.section-title { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-muted); }
+.page-container { max-width: 900px; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.sticky-actions { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 0.5rem; padding-top: 0.75rem; background: linear-gradient(to top,var(--color-surface) 70%,rgba(255,255,255,0)); }
+.divider { height:1px; background: var(--color-border); border:0; margin:0.25rem 0 0.75rem; }
+
+/* Cards / containers */
+.panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; }
+.panel-muted { background: var(--color-muted-bg); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 0.75rem 1rem; }
+
+/* Links */
+a { color: var(--color-accent); }
+a:hover { color: var(--color-accent-hover); }
+
+/* Reduce overly light hover states from Tailwind defaults where conflicting */
+button:hover, a.button:hover { filter: brightness(0.95); }
+
+/* Selection */
+::selection { background: var(--color-accent); color: var(--color-accent-fg); }
+
+/* Scrollbar (webkit) */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--color-muted-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
+
+/* Tables */
+table { border-collapse: collapse; width: 100%; }
+table th { font-weight: 500; text-align: left; color: var(--color-muted); }
+table td, table th { padding: 0.5rem 0.25rem; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+table tr:last-child td { border-bottom: none; }
+table tr:hover { background: var(--color-muted-bg); }
+.table-compact td, .table-compact th { padding: 0.25rem 0.125rem; font-size: 0.75rem; }
