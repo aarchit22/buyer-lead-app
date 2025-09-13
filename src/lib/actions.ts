@@ -34,6 +34,16 @@ async function getUserIdFromSession(): Promise<string | null> {
   return user?.username ?? null;
 }
 
+// Helper function to check if user has admin privileges
+function isAdmin(username: string): boolean {
+  return username === 'admin'; // Admin can edit/delete all records
+}
+
+// Helper function to check if user can edit a record
+function canEditRecord(recordOwnerId: string, currentUserId: string): boolean {
+  return recordOwnerId === currentUserId || isAdmin(currentUserId);
+}
+
 async function getClientIP(): Promise<string> {
   const headersList = await headers();
   return headersList.get('x-forwarded-for') || 
@@ -50,13 +60,18 @@ export async function login(
   const username = formData.get('username');
   const password = formData.get('password');
 
-  if (
-    username === process.env.DEMO_USER &&
-    password === process.env.DEMO_PASSWORD
-  ) {
+  // Demo users for testing multi-user functionality
+  const demoUsers: Record<string, string> = {
+    'admin': process.env.DEMO_PASSWORD!, 
+    'sales1': 'sales123',
+    'sales2': 'sales456',
+    'manager': 'manager123'
+  };
+
+  if (username && typeof username === 'string' && demoUsers[username] === password) {
     // Create the token payload
-  const user = { username: 'admin' }; // In a real app, this would be a user ID
-  const token = createSession(user);
+    const user = { username: username };
+    const token = createSession(user);
 
     // Set the session cookie
     (await cookies()).set('session', token, {
@@ -72,6 +87,20 @@ export async function login(
 
   // If login fails, return an error message
   return { error: 'Invalid username or password' };
+}
+
+// ------------------- LOGOUT ACTION -------------------
+export async function logout(): Promise<void> {
+  // Clear the session cookie
+  (await cookies()).set('session', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 0, // Expire immediately
+    path: '/',
+  });
+
+  // Redirect to login page
+  redirect('/login');
 }
 
 // ------------------- CREATE BUYER ACTION -------------------
@@ -250,7 +279,7 @@ export async function updateBuyer(
     if (!existing) {
       return { success: false, message: 'Record not found.', notFound: true };
     }
-    if (existing.ownerId !== ownerId) {
+    if (!canEditRecord(existing.ownerId, ownerId)) {
       return { success: false, message: 'You are not allowed to modify this record.', unauthorized: true };
     }
     const existingTs = existing.updatedAt.getTime();
@@ -339,6 +368,57 @@ export async function updateBuyer(
       return { success: false, message: 'Database busy, please retry shortly.' };
     }
   return { success: false, message: 'Unexpected error updating buyer.' };
+  }
+}
+
+// ------------------- DELETE BUYER ACTION -------------------
+export type DeleteBuyerResult = {
+  success: boolean;
+  message: string;
+  unauthorized?: boolean;
+};
+
+export async function deleteBuyer(buyerId: string): Promise<DeleteBuyerResult> {
+  const ownerId = await getUserIdFromSession();
+  if (!ownerId) {
+    return { success: false, message: 'Authentication required' };
+  }
+
+  if (!buyerId || typeof buyerId !== 'string') {
+    return { success: false, message: 'Valid buyer ID is required' };
+  }
+
+  try {
+    // Check if buyer exists and user owns it
+    const existing = await prisma.buyer.findUnique({
+      where: { id: buyerId },
+      select: { id: true, ownerId: true, fullName: true }
+    });
+
+    if (!existing) {
+      return { success: false, message: 'Buyer not found' };
+    }
+
+    if (!canEditRecord(existing.ownerId, ownerId)) {
+      return { 
+        success: false, 
+        message: 'You are not allowed to delete this record.', 
+        unauthorized: true 
+      };
+    }
+
+    // Delete the buyer (this will cascade to buyer_history due to foreign key)
+    await prisma.buyer.delete({
+      where: { id: buyerId }
+    });
+
+    return { success: true, message: `Buyer "${existing.fullName}" deleted successfully` };
+  } catch (error) {
+    console.error('Error deleting buyer:', error);
+    if (error instanceof Error) {
+      return { success: false, message: `Delete failed: ${error.message}` };
+    }
+    return { success: false, message: 'Unexpected error deleting buyer.' };
   }
 }
 

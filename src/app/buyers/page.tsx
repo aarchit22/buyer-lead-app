@@ -1,11 +1,12 @@
 import { PrismaClient, City, PropertyType, Status, Timeline } from '@prisma/client';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { requireUser } from '@/lib/auth';
+import { requireUser, getSessionUser } from '@/lib/auth';
 import SearchFilters from './search-filters';
 import CSVExportButton from './csv-export-button';
 import CSVImportButton from './csv-import-button';
 import EmptyState from '@/components/empty-state';
+import LogoutButton from '@/components/logout-button';
 
 // NOTE: In a larger app, move prisma singleton to a shared module
 const prisma = new PrismaClient();
@@ -144,17 +145,25 @@ function Pagination({ page, totalPages, params }: { page: number; totalPages: nu
 // Search & Filters (client component for debounced input & URL sync)
 
 export default async function BuyersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireUser();
+  const user = await requireUser();
   const resolvedSearchParams = await searchParams;
+  const isAdmin = user.username === 'admin';
   
   return (
     <main className="max-w-6xl mx-auto p-4 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Buyer Leads</h1>
-        <div className="flex gap-2">
+        <div>
+          <h1 className="text-2xl font-bold">Buyer Leads</h1>
+          <p className="text-sm text-muted mt-1">
+            Logged in as: <span className="font-medium">{user.username}</span>
+            {isAdmin && <span className="ml-2 text-xs bg-accent text-accent-fg px-2 py-1 rounded">ADMIN</span>}
+          </p>
+        </div>
+        <div className="flex gap-2 items-center">
           <Link href="/buyers/new" className="btn btn-outline">New Lead</Link>
           <CSVImportButton />
           <CSVExportButton />
+          <LogoutButton />
         </div>
       </div>
       <SearchFilters 

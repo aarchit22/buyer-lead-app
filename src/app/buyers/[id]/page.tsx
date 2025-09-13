@@ -3,6 +3,8 @@ import { requireUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import BuyerEditForm from './buyer-edit-form'; // ensure .tsx resolves
+import DeleteBuyerButton from './delete-buyer-button';
+import LogoutButton from '@/components/logout-button';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +28,7 @@ function formatBudget(min: number | null | undefined, max: number | null | undef
 
 
 export default async function BuyerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+  const user = await requireUser();
   const resolvedParams = await params;
   const data = await fetchBuyer(resolvedParams.id);
   if (!data) return notFound();
@@ -35,7 +37,16 @@ export default async function BuyerDetailPage({ params }: { params: Promise<{ id
     <main className="max-w-5xl mx-auto p-4 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Edit Buyer</h1>
-        <Link href="/buyers" className="btn btn-outline">Back to list</Link>
+        <div className="flex gap-2">
+          <DeleteBuyerButton 
+            buyerId={data.buyer.id}
+            buyerName={data.buyer.fullName}
+            ownerId={data.buyer.ownerId}
+            currentUserId={user.username}
+          />
+          <Link href="/buyers" className="btn btn-outline">Back to list</Link>
+          <LogoutButton />
+        </div>
       </div>
       <div className="grid md:grid-cols-3 gap-8">
         <section className="md:col-span-2 panel space-y-6">
